@@ -1,0 +1,25 @@
+username: 你的用户名
+# 若 password_method 为 base64, 则使用 base64.standard_b64decode 编码密码。
+password_method: raw
+# 不设置密码则在需要时提示输入
+password: password
+# 登录方式: pc/wap
+login_method: pc
+# Firefox cookie 位置(如果需要),可以自动检测的但是我懒得……
+ff_cookie_db: "/home/skydark/.mozilla/firefox/XXXX(自填).default/cookies.sqlite"
+# 两次签到间的间隔
+sign_interval: 0.3
+# 两次回复间的间隔
+reply_interval: 0.5
+# 回复帖子
+replies:
+  - tid: 732156916
+    content: 助手！  # 可以直接写内容，有奇怪的符号推荐用双引号包起来
+    comment: 助手签到  # 注释
+  - tid: 779422676
+    content: [emotion, jd/j_0006]  # 也可以用这个方式写纯表情
+    comment: 橘子签到
+# 签到贴吧
+signs:
+  - [ever17, remember11, 12riven, KID社]
+  - [水树奈奈, ClariS]
