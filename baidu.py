@@ -4,15 +4,50 @@
 CONFIG_FILE = 'baidu.yaml'
 MAX_SIGN_LIMIT = 100
 
+
+import sys
+
+py = sys.version_info
+py3k = py >= (3, 0, 0)
+
+default_encoding = sys.getfilesystemencoding()
+if default_encoding.lower() == 'ascii':
+    default_encoding = 'utf-8'
+
+if py3k:
+    from urllib.request import urlopen, build_opener, install_opener
+    from urllib.request import Request, HTTPCookieProcessor
+    from urllib.parse import urlencode
+    from http.cookiejar import MozillaCookieJar, CookieJar
+    from io import StringIO
+    input = input
+    U = lambda s: s
+    def printu(x, *y):
+        print(x % y)
+    encode = lambda s: urlencode(s).encode('utf-8')
+else:
+    from urllib2 import urlopen, build_opener, install_opener
+    from urllib2 import Request, HTTPCookieProcessor
+    from urllib import urlencode
+    from cookielib import MozillaCookieJar, CookieJar
+    from StringIO import StringIO
+    input = raw_input
+    U = lambda s, encoding='utf-8': s.decode(encoding) if isinstance(s, str) else s
+    B = lambda s, encoding='utf-8': U(s).encode(encoding) if isinstance(s, basestring) else s
+    def printu(x, *y):
+        print(U(x) % y)
+    def encode(s):
+        if isinstance(s, dict):
+            d = {}
+            for k, v in s.items():
+                d[B(k)] = B(v)
+            s = d
+        return urlencode(s).encode('utf8')
+
 import re
 import json
 from time import sleep
 from base64 import standard_b64decode as b64decode
-from urllib.request import urlopen, build_opener, install_opener
-from urllib.request import Request, HTTPCookieProcessor
-from urllib.parse import urlencode
-from http.cookiejar import MozillaCookieJar, CookieJar
-from io import StringIO
 import yaml
 
 CONFIG = yaml.load(open(CONFIG_FILE, 'r'))
@@ -35,16 +70,12 @@ LOGIN_URL = '\
 https://passport.baidu.com/v2/api/?getapi&class=login&tpl=mn&tangram=false'
 
 if len(SIGN_TIEBAS) > MAX_SIGN_LIMIT:
-    print('注意: 你只能签到 %s 个贴吧！' % MAX_SIGN_LIMIT)
+    printu('注意: 你只能签到 %s 个贴吧！', MAX_SIGN_LIMIT)
     input('Ctrl - C 终止，回车继续')
 
 
-def encode(s):
-    return urlencode(s).encode('utf8')
-
-
 def find_field(pattern, s):
-    return re.findall(pattern, s)[0]
+    return re.findall(U(pattern), s)[0]
 
 
 def login(username, password, login_method=LOGIN_METHOD):
@@ -91,7 +122,7 @@ def get_tbs():
             else:
                 password = input('请输入 %s 的密码：' % username)
         else:
-            print('你尚未登录！')
+            printu('你尚未登录！')
             username = input('Username:')
             password = input('Password:')
         login(username, password)
@@ -146,9 +177,10 @@ def sign(name, tbs):
     ret = json.loads(content.decode('utf-8'))
     errno = ret.get('no', -1)
     if errno != 0:
-        msg = 'XX 签到失败！: %s - %s' % (errno, ret.get('error', ''))
+        msg = U('XX 签到失败！: %s - %s') % (errno, ret.get('error', ''))
     else:
-        msg = '   签到成功！你是第 %s 个签到的人！' % ret['data']['uinfo']['user_sign_rank']
+        msg = U('   签到成功！你是第 %s 个签到的人！') % \
+                ret['data']['uinfo']['user_sign_rank']
     return errno, msg
 
 content_utils = {
@@ -164,8 +196,8 @@ def reply(tid, tbs, content):
     #return 0, "回复果然成功"
     tb = urlopen("http://tieba.baidu.com/p/%s" % tid)
     post_data = find_field('data-postor="([^"]+)"', tb.read().decode('gbk'))
-    fid = find_field("fid:'(\w+)'", post_data)
-    kw = find_field("kw:'(\w+)'", post_data)
+    fid = find_field("fid:'([^']+)'", post_data)
+    kw = find_field("kw:'([^']+)'", post_data)
     data = {
             'kw': kw,
             'ie': 'utf-8',
@@ -180,9 +212,9 @@ def reply(tid, tbs, content):
     ret = json.loads(req.read().decode('gbk'))
     errno = ret.get('no', -1)
     if errno != 0:
-        msg = 'XX 回复失败！: %s - %s' % (errno, ret.get('error', ''))
+        msg = U('XX 回复失败！: %s - %s') % (errno, ret.get('error', ''))
     else:
-        msg = '   回复成功！'
+        msg = U('   回复成功！')
     return errno, msg
 
 
@@ -191,7 +223,7 @@ def main(replies, signs):
         try:
             cookie_jar = get_cookies_from_ff(FF_COOKIE_DB)
         except:
-            print('加载 FF Cookie 失败！')
+            printu('加载 FF Cookie 失败！')
             cookie_jar = CookieJar()
     else:
         cookie_jar = CookieJar()
@@ -205,17 +237,17 @@ def main(replies, signs):
             continue
         content = item.get('content', '')
         comment = item.get('comment', '')
-        print('正在回复: tid: %s - %s' % (tid, comment))
+        printu('正在回复: tid: %s - %s', tid, comment)
         if isinstance(content, (tuple, list)):
             func = content_utils.get(content[0], lambda *x: ''.join(str(x)))
             content = func(*content[1:])
         errno, msg = reply(tid, tbs, content)
-        print(msg)
+        printu(msg)
         sleep(REPLY_INTERVAL)
     for name in signs:
-        print('正在签到: %s' % name)
+        printu('正在签到: %s', name)
         errno, msg = sign(name, tbs)
-        print(msg)
+        printu(msg)
         if errno == 1007:  # too often
             return -1
         sleep(SIGN_INTERVAL)
