@@ -1,7 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 
+from os import path
+
 CONFIG_FILE = 'baidu.yaml'
+CONFIG_FILE = path.join(path.dirname(path.realpath(__file__)), CONFIG_FILE)
 MAX_SIGN_LIMIT = 100
 
 
@@ -170,11 +173,30 @@ def get_cookies_from_ff(db_filename):
     return cookie_jar
 
 
+def fake_sign(name, tbs):
+    print(name)
+    import random
+    r = random.randint(0, 8)
+    if r != 8:
+        return 0 , "签到果然成功"
+    else:
+        return -1 , "签到果然失败"
+
+
 def sign(name, tbs):
     data = encode({'kw': name, 'ie': 'utf-8', 'tbs': tbs})
     req = Request(url=SIGN_URL, data=data)
     content = urlopen(req).read()
-    ret = json.loads(content.decode('utf-8'))
+    try:
+        content = content.decode('utf-8')
+    except UnicodeDecodeError:
+        try:
+            content = content.decode('gbk')
+            #printu(content)
+        except UnicodeDecodeError:
+            return -1, U('未知的响应编码')
+        return -1, U('请求失败！')
+    ret = json.loads(content)
     errno = ret.get('no', -1)
     if errno != 0:
         msg = U('XX 签到失败！: %s - %s') % (errno, ret.get('error', ''))
@@ -191,9 +213,17 @@ class="BDE_Smiley">''' % s,
         }
 
 
+def fake_reply(tid, tbs, content):
+    print(tid, content)
+    import random
+    r = random.randint(0, 3)
+    if r != 3:
+        return 0 , "签到果然成功"
+    else:
+        return -1 , "签到果然失败"
+
+
 def reply(tid, tbs, content):
-    #print(tid, content)
-    #return 0, "回复果然成功"
     tb = urlopen("http://tieba.baidu.com/p/%s" % tid)
     post_data = find_field('data-postor="([^"]+)"', tb.read().decode('gbk'))
     fid = find_field("fid:'([^']+)'", post_data)
@@ -219,6 +249,9 @@ def reply(tid, tbs, content):
 
 
 def main(replies, signs):
+    # global reply, sign
+    # reply, sign = fake_reply, fake_sign
+
     if FF_COOKIE_DB:
         try:
             cookie_jar = get_cookies_from_ff(FF_COOKIE_DB)
@@ -231,9 +264,32 @@ def main(replies, signs):
     opener.addheaders = [('User-agent', 'Opera/9.23')]
     install_opener(opener)
     tbs = get_tbs()
+
+    retry_tasks(lambda tasks: reply_all(tasks, tbs), replies, '以下帖子回复失败：')
+    retry_tasks(lambda tasks: sign_all(tasks, tbs), signs, '以下贴吧签到失败：')
+
+
+def retry_tasks(do, tasks, msg=''):
+    while True:
+        failed_tasks = do(tasks)
+        if len(failed_tasks) > 0:
+            printu(msg)
+            print(failed_tasks)
+            r = input('输入r重试，输入其它退出:').strip().lower()
+            if r == 'r':
+                tasks = failed_tasks
+                continue
+        break
+    return len(failed_tasks) == 0
+
+def reply_all(replies, tbs=None):
+    if tbs is None:
+        tbs = get_tbs()
+    failed_replies = replies[:]
     for item in replies:
         tid = item.get('tid', -1)
         if tid <= 0:
+            failed_replies.remove(item)
             continue
         content = item.get('content', '')
         comment = item.get('comment', '')
@@ -243,14 +299,26 @@ def main(replies, signs):
             content = func(*content[1:])
         errno, msg = reply(tid, tbs, content)
         printu(msg)
+        if errno == 0:
+            failed_replies.remove(item)
         sleep(REPLY_INTERVAL)
+    return failed_replies
+
+def sign_all(signs, tbs=None):
+    if tbs is None:
+        tbs = get_tbs()
+    failed_signs = signs[:]
     for name in signs:
         printu('正在签到: %s', name)
         errno, msg = sign(name, tbs)
         printu(msg)
         if errno == 1007:  # too often
-            return -1
+            return failed_signs
+        elif errno in (0, 1101):  # 1101: already signed
+            failed_signs.remove(name)
         sleep(SIGN_INTERVAL)
+    return failed_signs
+
 
 if __name__ == '__main__':
     main(REPLIES, SIGN_TIEBAS)
