@@ -312,7 +312,7 @@ def sign_all(signs, tbs=None):
         printu('正在签到: %s', name)
         errno, msg = sign(name, tbs)
         printu(msg)
-        if errno == 1007:  # too often
+        if errno in (1102, 1007):  # too often
             return failed_signs
         elif errno in (0, 1101):  # 1101: already signed
             failed_signs.remove(name)

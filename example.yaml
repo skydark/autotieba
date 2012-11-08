@@ -8,7 +8,7 @@ login_method: pc
 # Firefox cookie 位置(如果需要),可以自动检测的但是我懒得……
 ff_cookie_db: "/home/skydark/.mozilla/firefox/XXXX(自填).default/cookies.sqlite"
 # 两次签到间的间隔
-sign_interval: 0.3
+sign_interval: 1.2
 # 两次回复间的间隔
 reply_interval: 0.5
 # 回复帖子
