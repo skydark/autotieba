@@ -22,6 +22,7 @@ if py3k:
     from urllib.request import Request, HTTPCookieProcessor
     from urllib.parse import urlencode
     from http.cookiejar import MozillaCookieJar, CookieJar
+    from html.parser import HTMLParser
     from io import StringIO
     input = input
     U = lambda s: s
@@ -33,6 +34,7 @@ else:
     from urllib2 import Request, HTTPCookieProcessor
     from urllib import urlencode
     from cookielib import MozillaCookieJar, CookieJar
+    from HTMLParser import HTMLParser
     from StringIO import StringIO
     input = raw_input
     U = lambda s, encoding='utf-8': s.decode(encoding) if isinstance(s, str) else s
@@ -224,10 +226,15 @@ def fake_reply(tid, tbs, content):
 
 
 def reply(tid, tbs, content):
-    tb = urlopen("http://tieba.baidu.com/p/%s" % tid)
-    post_data = find_field('data-postor="([^"]+)"', tb.read().decode('gbk'))
-    fid = find_field("fid:'([^']+)'", post_data)
-    kw = find_field("kw:'([^']+)'", post_data)
+    tbtext = urlopen("http://tieba.baidu.com/p/%s" % tid).read()
+    try:
+        tb = tbtext.decode('gbk')
+    except UnicodeDecodeError:
+        tb = tbtext.decode('gbk', errors='ignore')
+    post_data = find_field('data-postor="([^"]+)"', tb)
+    post_data = HTMLParser().unescape(post_data)
+    fid = find_field('"fid":"([^"]+)"', post_data)
+    kw = find_field('"kw":"([^"]+)"', post_data).encode('utf-8').decode('unicode_escape')
     data = {
             'kw': kw,
             'ie': 'utf-8',
