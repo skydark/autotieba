@@ -231,10 +231,10 @@ def reply(tid, tbs, content):
         tb = tbtext.decode('gbk')
     except UnicodeDecodeError:
         tb = tbtext.decode('gbk', errors='ignore')
-    post_data = find_field('data-postor="([^"]+)"', tb)
+    post_data = find_field('data : {([^}]+)}', tb)
     post_data = HTMLParser().unescape(post_data)
-    fid = find_field('"fid":"([^"]+)"', post_data)
-    kw = find_field('"kw":"([^"]+)"', post_data).encode('utf-8').decode('unicode_escape')
+    fid = find_field("fid:'([^']+)'", post_data)
+    kw = find_field("kw:'([^']+)'", post_data)
     data = {
             'kw': kw,
             'ie': 'utf-8',
